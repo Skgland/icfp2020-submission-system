@@ -24,4 +24,4 @@ WORKDIR /submission-system
 RUN  cargo build --release
 
 # start the submision system
-ENTRYPOINT ["cargo", "run"]
+ENTRYPOINT ["cargo", "run", "--release"]

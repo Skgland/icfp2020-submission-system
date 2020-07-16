@@ -15,7 +15,7 @@ use std::time::Duration;
 #[derive(Serialize, Deserialize)]
 struct ConfigFile {
     repos: Vec<RepoSettings>,
-    debug: bool,
+    debug: bool
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,0 +1,9 @@
+ConfigFile (
+    repos : [
+        RepoSettings (
+            clone_url: "http://root:adminadmin@192.168.161.107/root/starterkit-haskell.git",
+            pull_key: "TODO",
+        )
+    ]
+    debug: true
+)

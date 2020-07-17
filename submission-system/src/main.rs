@@ -70,7 +70,7 @@ impl Display for TestLogResult {
 #[derive(Debug)]
 enum TestLogResult {
     Success,
-    SetupError,
+    SetupError(SetupError),
     TestError {
         run_error_log: Option<Output>,
         test_error_log: Option<Output>,
@@ -243,9 +243,9 @@ fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Da
                     TestLogResult::TestError { test_error_log: Some(test), run_error_log: Some(run) }}
             });
         }
-        Err(_error) => {
+        Err(error) => {
             results.write().unwrap().get_mut(index).map(
-                |e| e.result = TestLogResult::SetupError
+                |e| e.result = TestLogResult::SetupError(error)
             );
         }
     }
@@ -259,7 +259,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
     let _repo = reo_builder.branch(branch).clone(clone_url, dir.path())?;
 
     println!("Cloned");
-    println!("Checked out submission branch!");
+    println!("Checked out {} branch!", branch);
 
     let platform = {
         let mut platform_path = PathBuf::from(dir.path());

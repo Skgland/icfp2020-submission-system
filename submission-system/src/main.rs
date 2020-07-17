@@ -1,6 +1,5 @@
 use tempdir::TempDir;
 use std::path::{PathBuf};
-use git2::{Repository, BranchType};
 
 use serde::Serialize;
 use serde::Deserialize;
@@ -8,41 +7,145 @@ use std::error::Error;
 use std::fmt::{Display, Debug};
 use serde::export::Formatter;
 use git2::build::RepoBuilder;
-use std::thread::sleep;
-use std::time::Duration;
+use actix_web::{web, App, HttpServer, HttpResponse};
+use std::net::SocketAddr;
+use listenfd::ListenFd;
+use std::sync::RwLock;
 
 
 #[derive(Serialize, Deserialize)]
 struct ConfigFile {
     repos: Vec<RepoSettings>,
-    debug: bool
+    debug: bool,
 }
 
 #[derive(Serialize, Deserialize)]
 struct RepoSettings {
+    match_url: String,
     clone_url: String,
-    pull_key: String,
+    deploy_token: String,
+    deploy_user: String,
 }
 
-struct TestResult {}
+#[derive(Debug)]
+enum TestResult {
+    Success,
+    Error,
+    InProgress,
+}
 
-fn main() -> Result<(), SetupError> {
+impl Display for TestResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
+struct TestLogEntry {
+    repository: String,
+    branch: String,
+    result: TestResult,
+}
+
+#[actix_rt::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let mut listenfd = ListenFd::from_env();
+
+
     let config_content = std::fs::read_to_string("repositories.ron")?;
-
-    //let str = ron::ser::to_string(&ConfigFile{repos:vec![RepoSettings{clone_url:"Test".into(), pull_key:"Test".into()}]})?;
-    //println!("{}", str);
 
     let config: ConfigFile = ron::de::from_str(&config_content)?;
 
 
-    for repo in config.repos.iter() {
-        test(repo)?;
-    }
+    let conf_data = web::Data::new(config);
+    let result_data = web::Data::new(RwLock::new(Vec::<TestLogEntry>::new()));
 
-    println!("Hello, world!");
+
+    let mut server = HttpServer::new(move || {
+        App::new()
+            .app_data(conf_data.clone())
+            .app_data(result_data.clone())
+            .service(
+                web::resource("/submission").route(web::post().to(submission_handler))
+            ).service(web::resource("/board").route(web::get().to(submision_lookup)))
+    });
+
+    server = if let Some(l) = listenfd.take_tcp_listener(0)? {
+        println!("Starting Server using TCPListener from listenfd.");
+        server.listen(l)?
+    } else {
+        let sock_addr = SocketAddr::new([0, 0, 0, 0].into(), 80);
+
+        println!("Starting Server on {}", sock_addr);
+
+        server.bind(sock_addr)?
+    };
+    server.run().await;
 
     Ok(())
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+struct RequestData {
+    object_kind: String,
+    #[serde(alias = "ref")]
+    reference: String,
+    repository: Repo,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct Repo {
+    git_ssh_url: String,
+    git_http_url: String,
+}
+
+async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
+    let guard = results.read().unwrap();
+    let results: String = guard.iter().map(|entry| format!("
+            <tr>
+                <td>{}</td>
+                <td>{}</td>
+                <td>{}</td>
+            </tr>", &entry.repository, &entry.branch, &entry.result)).collect();
+
+    HttpResponse::Ok().body(format!("\
+<html>
+    <head>
+        <meta charset='utf-8' />
+    </head>
+    <body>
+        <h1> Test Results </h1>
+        <table>
+        <tr><th>Repo</th><th>Branch</th><th>Result</th></tr>
+        {}
+        </table>
+    </body>
+</html>
+", results))
+}
+
+async fn submission_handler(form: web::Json<RequestData>, conf: web::Data<ConfigFile>, results: web::Data<RwLock<Vec<TestLogEntry>>>) -> Result<HttpResponse, actix_web::error::Error> {
+    println!("{:?}", form);
+
+    for rep in conf.repos.iter() {
+        let branch = form.reference.replace("refs/heads/", "");
+
+        if branch != "submission" && !branch.starts_with("submissions/") {
+            return Ok(HttpResponse::Ok().body("Skipping none submission branch"));
+        }
+
+        if form.repository.git_http_url == rep.match_url {
+            let clone_url = rep.clone_url.replace("{username}", &rep.deploy_user).replace("{password}", &rep.deploy_token);
+            let branche_clone = branch.clone();
+            let match_clone = rep.match_url.clone();
+            let result = actix_rt::Arbiter::current().exec_fn(move || test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone()));
+
+            return Ok(HttpResponse::Ok().body("Running Test!"));
+        }
+    }
+
+    Ok(HttpResponse::Ok().body(format!("Unknown Repository {}", form.repository.git_http_url)))
+}
+
 macro_rules! impl_from_for {
     ($from:ty => $to:ty as $var:ident) => {
         impl From<$from> for $to {
@@ -77,11 +180,33 @@ impl Display for SetupError {
     }
 }
 
-fn test(repo: &RepoSettings) -> Result<TestResult, SetupError> {
+fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Data<RwLock<Vec<TestLogEntry>>>)
+{
+    let index = {
+        let mut guard = results.write().unwrap();
+        let len = guard.len();
+        guard.push(TestLogEntry {
+            repository: match_url.into(),
+            branch: branch.into(),
+            result: TestResult::InProgress,
+        });
+        len
+    };
+
+    match test(clone_url, branch) {
+        Ok(_result) => {
+            results.write().unwrap().get_mut(index).map(|e| e.result = _result);
+        }
+        Err(error) => {}
+    }
+}
+
+fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
     let dir = TempDir::new("submission")?;
 
     let mut reo_builder = RepoBuilder::new();
-    let repo = reo_builder.branch("submission").clone(&repo.clone_url, dir.path())?;
+
+    let repo = reo_builder.branch(branch).clone(clone_url, dir.path())?;
 
     println!("Cloned");
     println!("Checked out submission branch!");
@@ -140,12 +265,12 @@ fn test(repo: &RepoSettings) -> Result<TestResult, SetupError> {
     if result.status.success() {
         // TODO statistics
         println!("Success");
-        Ok(TestResult {})
+        Ok(TestResult::Success)
     } else {
         // TODO negative Test result
         println!("Failure!");
         println!("{}", String::from_utf8(result.stdout)?);
         eprintln!("{}", String::from_utf8(result.stderr)?);
-        Ok(TestResult {})
+        Ok(TestResult::Error)
     }
 }

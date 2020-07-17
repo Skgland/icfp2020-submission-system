@@ -12,7 +12,8 @@ RUN apt-key fingerprint 0EBFCD88 \
     && apt-get install -qq docker-ce-cli
 
 # gather sources
-COPY submission-system /submission-system
+COPY submission-system/src /submission-system/src
+COPY ["submission-system/Cargo.*", "submission-system/repositories.ron", "/submission-system/"]
 
 # prepare clean images
 RUN git clone https://github.com/icfpcontest2020/dockerfiles.git /dockerfiles

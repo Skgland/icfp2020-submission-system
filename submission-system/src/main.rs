@@ -197,7 +197,7 @@ enum SetupError {
     IOError(std::io::Error),
     RonError(ron::Error),
     Utf8Erro(std::string::FromUtf8Error),
-    ContainerBuildFailed,
+    ContainerBuildFailed(Output),
 }
 
 impl_from_for!(git2::Error => SetupError as GitError);
@@ -287,7 +287,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
 
 
     if !out.status.success() {
-        Err(SetupError::ContainerBuildFailed)?
+        return Err(SetupError::ContainerBuildFailed(Output{stdout: String::from_utf8(out.stdout)?, stderr: String::from_utf8(out.stderr)? }))
     }
 
     let id = {

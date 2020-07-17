@@ -72,7 +72,7 @@ enum TestLogResult {
     Success,
     SetupError,
     TestError {
-        run_error_log: Option<Ouput>,
+        run_error_log: Option<Output>,
         test_error_log: Option<Output>,
     },
 
@@ -233,9 +233,14 @@ fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Da
                 TestResult::Success => {
                     TestLogResult::Success
                 }
-                TestResult::Error => {
-                    TestLogResult::TestError
+                TestResult::TestError {test} => {
+                    TestLogResult::TestError{test_error_log: Some(test), run_error_log: None}
                 }
+
+                TestResult::RunError { run} => {
+                    TestLogResult::TestError { test_error_log: None, run_error_log: Some(run) }}
+                TestResult::RunTestError { run, test } => {
+                    TestLogResult::TestError { test_error_log: Some(test), run_error_log: Some(run) }}
             });
         }
         Err(_error) => {

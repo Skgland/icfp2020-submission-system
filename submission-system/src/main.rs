@@ -48,6 +48,16 @@ struct Output {
     stderr: String,
 }
 
+impl Display for Output {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Stderr:\n")?;
+        f.write_str(&self.stderr)?;
+        f.write_str("\nStderr:\n")?;
+        f.write_str(&self.stderr)?;
+        f.write_str("\n")
+    }
+}
+
 impl Display for TestResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(self, f)
@@ -61,12 +71,6 @@ struct TestLogEntry {
     result: TestLogResult,
 }
 
-impl Display for TestLogResult {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
-}
-
 #[derive(Debug)]
 enum TestLogResult {
     Success,
@@ -77,6 +81,34 @@ enum TestLogResult {
     },
 
     InProgress,
+}
+
+impl Display for TestLogResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success => {
+                f.write_str("Success")
+            }
+            TestLogResult::SetupError(error) => {
+                f.write_str("Setup Error:\n")?;
+                Display::fmt(error, f)
+            }
+            TestLogResult::TestError { run_error_log, test_error_log } => {
+                f.write_str("Test Error:\n")?;
+                if let  Some(rel) = run_error_log {
+                    Display::fmt(rel,f)?;
+                    f.write_str("\n")?
+                }
+                if let Some(tel) = test_error_log {
+                    Display::fmt(tel, f)?
+                }
+                Ok(())
+            }
+            TestLogResult::InProgress => {
+                f.write_str("In Progress")
+            }
+        }
+    }
 }
 
 #[actix_rt::main]

@@ -30,7 +30,22 @@ struct RepoSettings {
 #[derive(Debug)]
 enum TestResult {
     Success,
-    Error,
+    RunError {
+        run: Output
+    },
+    TestError {
+        test: Output
+    },
+    RunTestError {
+        run: Output,
+        test: Output,
+    },
+}
+
+#[derive(Debug)]
+struct Output {
+    stdout: String,
+    stderr: String,
 }
 
 impl Display for TestResult {
@@ -56,7 +71,11 @@ impl Display for TestLogResult {
 enum TestLogResult {
     Success,
     SetupError,
-    TestError,
+    TestError {
+        run_error_log: Option<Ouput>,
+        test_error_log: Option<Output>,
+    },
+
     InProgress,
 }
 
@@ -144,8 +163,8 @@ async fn submission_handler(form: web::Json<RequestData>, conf: web::Data<Config
     for rep in conf.repos.iter() {
         let branch = form.reference.replace("refs/heads/", "");
 
-        if branch != "submission" && !branch.starts_with("submissions/") {
-            return Ok(HttpResponse::Ok().body("Skipping none submission branch"));
+        if branch != "submission" && branch != "master" && !branch.starts_with("submissions/") {
+            return Ok(HttpResponse::Ok().body("Skipping none master|submission branch"));
         }
 
         if form.repository.git_http_url == rep.match_url {
@@ -275,8 +294,11 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
     let server = "localhost";
     let player = "player";
 
-    // run test
+    // run run.sh
     let result = std::process::Command::new("docker").arg("run").arg("--rm").arg(&id).arg(server).arg(player).output()?;
+
+    // run test.sh
+    let test_result = std::process::Command::new("docker").arg("run").arg("--rm").arg("--entrypoint").arg("./test.sh").arg(&id).output()?;
 
     let del_res = std::process::Command::new("docker").arg("rmi").arg(&id).output()?;
 
@@ -288,15 +310,29 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
         eprintln!("{}", String::from_utf8(del_res.stderr)?);
     }
 
-    if result.status.success() {
-        // TODO statistics
-        println!("Success");
-        Ok(TestResult::Success)
-    } else {
-        // TODO negative Test result
-        println!("Failure!");
-        println!("{}", String::from_utf8(result.stdout)?);
-        eprintln!("{}", String::from_utf8(result.stderr)?);
-        Ok(TestResult::Error)
+    match (result.status.success(), test_result.status.success()) {
+        (true, true) => {
+            println!("Success");
+            Ok(TestResult::Success)
+        }
+        (false, false) => {
+            println!("Run and Test failed!");
+            Ok(TestResult::RunTestError {
+                run: Output { stdout: String::from_utf8(result.stdout)?, stderr: String::from_utf8(result.stderr)? },
+                test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)?},
+            })
+        }
+        (false, _) => {
+            println!("Run failed!");
+            Ok(TestResult::RunError{
+                run: Output { stdout: String::from_utf8(result.stdout)?, stderr: String::from_utf8(result.stderr)? },
+            })
+        }
+        (_, false) => {
+            println!("Test failed!");
+            Ok(TestResult::TestError{
+                test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)? },
+            })
+        }
     }
 }

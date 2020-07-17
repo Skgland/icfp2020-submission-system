@@ -31,7 +31,6 @@ struct RepoSettings {
 enum TestResult {
     Success,
     Error,
-    InProgress,
 }
 
 impl Display for TestResult {
@@ -40,10 +39,25 @@ impl Display for TestResult {
     }
 }
 
+#[derive(Debug)]
 struct TestLogEntry {
     repository: String,
     branch: String,
-    result: TestResult,
+    result: TestLogResult,
+}
+
+impl Display for TestLogResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
+#[derive(Debug)]
+enum TestLogResult {
+    Success,
+    SetupError,
+    TestError,
+    InProgress,
 }
 
 #[actix_rt::main]
@@ -79,7 +93,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         server.bind(sock_addr)?
     };
-    server.run().await;
+    server.run().await?;
 
     Ok(())
 }
@@ -100,6 +114,7 @@ struct Repo {
 
 async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
     let guard = results.read().unwrap();
+
     let results: String = guard.iter().map(|entry| format!("
             <tr>
                 <td>{}</td>
@@ -137,7 +152,7 @@ async fn submission_handler(form: web::Json<RequestData>, conf: web::Data<Config
             let clone_url = rep.clone_url.replace("{username}", &rep.deploy_user).replace("{password}", &rep.deploy_token);
             let branche_clone = branch.clone();
             let match_clone = rep.match_url.clone();
-            let result = actix_rt::Arbiter::current().exec_fn(move || test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone()));
+            actix_rt::Arbiter::current().exec_fn(move || test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone()));
 
             return Ok(HttpResponse::Ok().body("Running Test!"));
         }
@@ -188,16 +203,27 @@ fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Da
         guard.push(TestLogEntry {
             repository: match_url.into(),
             branch: branch.into(),
-            result: TestResult::InProgress,
+            result: TestLogResult::InProgress,
         });
         len
     };
 
     match test(clone_url, branch) {
-        Ok(_result) => {
-            results.write().unwrap().get_mut(index).map(|e| e.result = _result);
+        Ok(result) => {
+            results.write().unwrap().get_mut(index).map(|e| e.result = match result {
+                TestResult::Success => {
+                    TestLogResult::Success
+                }
+                TestResult::Error => {
+                    TestLogResult::TestError
+                }
+            });
         }
-        Err(error) => {}
+        Err(_error) => {
+            results.write().unwrap().get_mut(index).map(
+                |e| e.result = TestLogResult::SetupError
+            );
+        }
     }
 }
 
@@ -206,7 +232,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
 
     let mut reo_builder = RepoBuilder::new();
 
-    let repo = reo_builder.branch(branch).clone(clone_url, dir.path())?;
+    let _repo = reo_builder.branch(branch).clone(clone_url, dir.path())?;
 
     println!("Cloned");
     println!("Checked out submission branch!");

@@ -1,1 +1,1 @@
-docker run --rm -d -p 80:80 -v \\.\pipe\docker_engine:\\.\pipe\docker_engine submission
+docker run --rm -p 80:80 -v /var/run/docker.sock:/var/run/docker.sock submission

@@ -166,7 +166,7 @@ struct Repo {
 async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
     let guard = results.read().unwrap();
 
-    let results: String = guard.iter().map(|entry| format!("
+    let results: String = guard.iter().rev().map(|entry| format!("
             <tr>
                 <td>{}</td>
                 <td>{}</td>

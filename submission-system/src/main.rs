@@ -242,7 +242,23 @@ impl Error for SetupError {}
 
 impl Display for SetupError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
+        match self {
+            SetupError::GitError(git_err) => {
+                Display::fmt(git_err,f)
+            },
+            SetupError::IOError(io_err) => {
+                Display::fmt(io_err,f)
+            },
+            SetupError::RonError(ron_err) => {
+                Display::fmt(ron_err, f)
+            },
+            SetupError::Utf8Erro(utf8_error) => {
+                Display::fmt(utf8_err, f)
+            },
+            SetupError::ContainerBuildFailed(cbf) => {
+                Display::fmt(cbf, f)
+            },
+        }
     }
 }
 

@@ -150,7 +150,9 @@ async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> Http
         <h1> Test Results </h1>
         <table>
         <tr><th>Repo</th><th>Branch</th><th>Result</th></tr>
+        <pre>
         {}
+        </pre>
         </table>
     </body>
 </html>

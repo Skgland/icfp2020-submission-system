@@ -253,7 +253,7 @@ impl Display for SetupError {
                 Display::fmt(ron_err, f)
             },
             SetupError::Utf8Erro(utf8_error) => {
-                Display::fmt(utf8_err, f)
+                Display::fmt(utf8_error, f)
             },
             SetupError::ContainerBuildFailed(cbf) => {
                 Display::fmt(cbf, f)

@@ -29,7 +29,9 @@ struct RepoSettings {
 
 #[derive(Debug)]
 enum TestResult {
-    Success,
+    Success{
+        test: Output
+    },
     RunError {
         run: Output
     },
@@ -73,7 +75,7 @@ struct TestLogEntry {
 
 #[derive(Debug)]
 enum TestLogResult {
-    Success,
+    Success(Output),
     SetupError(SetupError),
     TestError {
         run_error_log: Option<Output>,
@@ -86,8 +88,9 @@ enum TestLogResult {
 impl Display for TestLogResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Success => {
-                f.write_str("Success")
+            Self::Success(o) => {
+                f.write_str("Success:\n")?;
+                Display::fmt(o,f)
             }
             TestLogResult::SetupError(error) => {
                 f.write_str("Setup Error:\n")?;
@@ -278,8 +281,8 @@ fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Da
     match test(clone_url, branch) {
         Ok(result) => {
             results.write().unwrap().get_mut(index).map(|e| e.result = match result {
-                TestResult::Success => {
-                    TestLogResult::Success
+                TestResult::Success{ test } => {
+                    TestLogResult::Success(test)
                 }
                 TestResult::TestError {test} => {
                     TestLogResult::TestError{test_error_log: Some(test), run_error_log: None}
@@ -366,7 +369,9 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
     match (result.status.success(), test_result.status.success()) {
         (true, true) => {
             println!("Success");
-            Ok(TestResult::Success)
+            Ok(TestResult::Success{
+                test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)? }
+            })
         }
         (false, false) => {
             println!("Run and Test failed!");

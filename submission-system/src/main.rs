@@ -52,8 +52,8 @@ struct Output {
 
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Stderr:\n")?;
-        f.write_str(&self.stderr)?;
+        f.write_str("Stdout:\n")?;
+        f.write_str(&self.stdout)?;
         f.write_str("\nStderr:\n")?;
         f.write_str(&self.stderr)?;
         f.write_str("\n")

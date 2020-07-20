@@ -1,0 +1,54 @@
+table {
+    background:lightblue;
+    border-collapse: collapse;
+    border: 3px solid black;
+}
+
+th {
+    background: darkcyan;
+    border: 1px solid black;
+}
+
+tfoot tr td {
+    background: darkcyan;
+}
+
+td {
+    border: 1px solid black;
+    background: cyan;
+}
+
+tr:nth-child(2n+0) td {
+    background:antiquewhite;
+}
+
+
+input.visToggle:not(:checked) + label.hide {
+    display: none
+}
+
+input.visToggle:not(:checked) + label.show + label.hide {
+    display: none
+}
+
+input.visToggle:checked + label.show {
+    display: none
+}
+
+input.visToggle:checked + label.hide + label.show {
+    display: none
+}
+
+.visToggle {
+    display: none
+}
+
+
+input.visToggle:not(:checked) + * + * + * :not(.summary) {
+    display: none
+}
+
+
+/* 
+
+*/

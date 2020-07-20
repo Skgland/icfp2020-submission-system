@@ -13,6 +13,8 @@ use listenfd::ListenFd;
 use std::sync::RwLock;
 
 
+const STYLE: &str = include_str!("style.css");
+
 #[derive(Serialize, Deserialize)]
 struct ConfigFile {
     repos: Vec<RepoSettings>,
@@ -29,7 +31,7 @@ struct RepoSettings {
 
 #[derive(Debug)]
 enum TestResult {
-    Success{
+    Success {
         test: Output
     },
     RunError {
@@ -52,11 +54,11 @@ struct Output {
 
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Stdout:\n")?;
+        f.write_str("Stdout:<br />\n<pre>\n")?;
         f.write_str(&self.stdout)?;
-        f.write_str("\nStderr:\n")?;
+        f.write_str("\n</pre><br />\nStderr:<br />\n<pre>\n")?;
         f.write_str(&self.stderr)?;
-        f.write_str("\n")
+        f.write_str("\n</pre>\n")
     }
 }
 
@@ -89,26 +91,28 @@ impl Display for TestLogResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Success(o) => {
-                f.write_str("Success:\n")?;
-                Display::fmt(o,f)
+                f.write_str("<span class='summary'>Success</span><span>:</span><br />\n<div>\n")?;
+                Display::fmt(o, f)?;
+                f.write_str("\n</div>")
             }
             TestLogResult::SetupError(error) => {
-                f.write_str("Setup Error:\n")?;
-                Display::fmt(error, f)
+                f.write_str("<span class='summary'>Setup Error</span><span>:</span><br />\n<div>\n")?;
+                Display::fmt(error, f)?;
+                f.write_str("</div>")
             }
             TestLogResult::TestError { run_error_log, test_error_log } => {
-                f.write_str("Test Error:\n")?;
-                if let  Some(rel) = run_error_log {
-                    Display::fmt(rel,f)?;
+                f.write_str("<span class='summary'>Test Error</span><span>:</span><br />\n<div>\n")?;
+                if let Some(rel) = run_error_log {
+                    Display::fmt(rel, f)?;
                     f.write_str("\n")?
                 }
                 if let Some(tel) = test_error_log {
                     Display::fmt(tel, f)?
                 }
-                Ok(())
+                f.write_str("</div>")
             }
             TestLogResult::InProgress => {
-                f.write_str("In Progress")
+                f.write_str("<span class='summary'>In Progress</span>")
             }
         }
     }
@@ -132,9 +136,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         App::new()
             .app_data(conf_data.clone())
             .app_data(result_data.clone())
-            .service(
-                web::resource("/submission").route(web::post().to(submission_handler))
-            ).service(web::resource("/board").route(web::get().to(submision_lookup)))
+            .service(web::resource("/").route(web::get().to(redirect_to_board)))
+            .service(web::resource("/submission").route(web::post().to(submission_handler)))
+            .service(web::resource("/board").route(web::get().to(redirect_to_board)))
+            .service(web::resource("/board/").route(web::get().to(submision_lookup)))
+            .service(web::resource("/board/style.css").route(web::get().to(style_handler)))
     });
 
     server = if let Some(l) = listenfd.take_tcp_listener(0)? {
@@ -166,25 +172,47 @@ struct Repo {
     git_http_url: String,
 }
 
+async fn style_handler() -> HttpResponse {
+    HttpResponse::Ok().body(STYLE)
+}
+
+async fn redirect_to_board() -> HttpResponse {
+    HttpResponse::TemporaryRedirect().set_header("Location", "/board/").finish()
+}
+
 async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
     let guard = results.read().unwrap();
 
-    let results: String = guard.iter().rev().map(|entry| format!("
+    let results: String = guard.iter().enumerate().rev()
+        .map(|(index, entry)|
+            format!("
             <tr>
-                <td>{}</td>
-                <td>{}</td>
-                <td><pre>{}</pre></td>
-            </tr>", &entry.repository, &entry.branch, &entry.result)).collect();
+                <td><a id='submission{index}' href='#submission{index}'>{index}</a></td>
+                <td>{repo}</td>
+                <td>{branch}</td>
+                <td>
+                    <input id='submission{index}result' class='visToggle' type='checkbox'>
+                    <label for='submission{index}result' class='show'>[Show]</label>
+                    <label for='submission{index}result' class='hide'>[Hide]</label>
+                    <div>{result}</div>
+                </td>
+            </tr>"
+                    , index = index
+                    , repo = &entry.repository
+                    , branch = &entry.branch
+                    , result = &entry.result
+            )).collect();
 
     HttpResponse::Ok().body(format!("\
 <html>
     <head>
         <meta charset='utf-8' />
+        <link rel='stylesheet' href='./style.css' />
     </head>
     <body>
         <h1> Test Results </h1>
         <table>
-        <tr><th>Repo</th><th>Branch</th><th>Result</th></tr>
+        <tr><th>Submission</th><th>Repo</th><th>Branch</th><th>Result</th></tr>
         {}
         </table>
     </body>
@@ -247,20 +275,20 @@ impl Display for SetupError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             SetupError::GitError(git_err) => {
-                Display::fmt(git_err,f)
-            },
+                Display::fmt(git_err, f)
+            }
             SetupError::IOError(io_err) => {
-                Display::fmt(io_err,f)
-            },
+                Display::fmt(io_err, f)
+            }
             SetupError::RonError(ron_err) => {
                 Display::fmt(ron_err, f)
-            },
+            }
             SetupError::Utf8Erro(utf8_error) => {
                 Display::fmt(utf8_error, f)
-            },
+            }
             SetupError::ContainerBuildFailed(cbf) => {
                 Display::fmt(cbf, f)
-            },
+            }
         }
     }
 }
@@ -281,17 +309,19 @@ fn test_wrapper(match_url: &str, clone_url: &str, branch: &str, results: web::Da
     match test(clone_url, branch) {
         Ok(result) => {
             results.write().unwrap().get_mut(index).map(|e| e.result = match result {
-                TestResult::Success{ test } => {
+                TestResult::Success { test } => {
                     TestLogResult::Success(test)
                 }
-                TestResult::TestError {test} => {
-                    TestLogResult::TestError{test_error_log: Some(test), run_error_log: None}
+                TestResult::TestError { test } => {
+                    TestLogResult::TestError { test_error_log: Some(test), run_error_log: None }
                 }
 
-                TestResult::RunError { run} => {
-                    TestLogResult::TestError { test_error_log: None, run_error_log: Some(run) }}
+                TestResult::RunError { run } => {
+                    TestLogResult::TestError { test_error_log: None, run_error_log: Some(run) }
+                }
                 TestResult::RunTestError { run, test } => {
-                    TestLogResult::TestError { test_error_log: Some(test), run_error_log: Some(run) }}
+                    TestLogResult::TestError { test_error_log: Some(test), run_error_log: Some(run) }
+                }
             });
         }
         Err(error) => {
@@ -338,7 +368,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
 
 
     if !out.status.success() {
-        return Err(SetupError::ContainerBuildFailed(Output{stdout: String::from_utf8(out.stdout)?, stderr: String::from_utf8(out.stderr)? }))
+        return Err(SetupError::ContainerBuildFailed(Output { stdout: String::from_utf8(out.stdout)?, stderr: String::from_utf8(out.stderr)? }));
     }
 
     let id = {
@@ -369,7 +399,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
     match (result.status.success(), test_result.status.success()) {
         (true, true) => {
             println!("Success");
-            Ok(TestResult::Success{
+            Ok(TestResult::Success {
                 test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)? }
             })
         }
@@ -377,18 +407,18 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
             println!("Run and Test failed!");
             Ok(TestResult::RunTestError {
                 run: Output { stdout: String::from_utf8(result.stdout)?, stderr: String::from_utf8(result.stderr)? },
-                test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)?},
+                test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)? },
             })
         }
         (false, _) => {
             println!("Run failed!");
-            Ok(TestResult::RunError{
+            Ok(TestResult::RunError {
                 run: Output { stdout: String::from_utf8(result.stdout)?, stderr: String::from_utf8(result.stderr)? },
             })
         }
         (_, false) => {
             println!("Test failed!");
-            Ok(TestResult::TestError{
+            Ok(TestResult::TestError {
                 test: Output { stdout: String::from_utf8(test_result.stdout)?, stderr: String::from_utf8(test_result.stderr)? },
             })
         }

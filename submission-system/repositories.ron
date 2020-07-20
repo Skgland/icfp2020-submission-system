@@ -2,7 +2,7 @@ ConfigFile (
     repos : [
         RepoSettings (
             match_url: "http://gitlab.local/root/starterkit-haskell.git",
-            clone_url: "http://{username}:{password}@192.168.161.107/root/starterkit-haskell.git",
+            clone_url: "http://{username}:{password}@gitlab.local/root/starterkit-haskell.git",
             deploy_token: "oGSsSCCwCNjDCPdToN-U",
             deploy_user: "gitlab+deploy-token-2",
         )

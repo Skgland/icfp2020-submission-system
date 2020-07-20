@@ -20,6 +20,7 @@ prior to the actual submission.
   * Run Container with default Entrypoint (run.sh) and two arguments
   
 ## The differences:
-  * run.sh has Network Acceess 
+  * tests master branch in addition to submission and submissions/* branches
+  * run.sh has Network Acceess
   * the arguments to run.sh do not resemble a valid server or playerKey
   * additional test.sh run after run.sh

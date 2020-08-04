@@ -1,7 +1,6 @@
 icfp2020-submission-system
 ==========================
 
-
 ## Description
 
 This system's purpose was to test potential submissions,
@@ -24,3 +23,7 @@ prior to the actual submission.
   * run.sh has Network Acceess
   * the arguments to run.sh do not resemble a valid server or playerKey
   * additional test.sh run after run.sh
+
+# See Also
+
+* [ICFP2020 Submission of Team Hastronaut](https://github.com/cau-placc/icfpcontest2020)

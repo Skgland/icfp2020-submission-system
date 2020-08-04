@@ -26,4 +26,4 @@ prior to the actual submission.
 
 # See Also
 
-* [ICFP2020 Submission of Team Hastronaut](https://github.com/cau-placc/icfpcontest2020)
+* [ICFP2020 Submission of Team Hastronauts](https://github.com/cau-placc/icfpcontest2020)

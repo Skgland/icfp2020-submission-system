@@ -116,6 +116,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "465a6172cf69b960917811022d8f29bc0b7fa1398bc4f78b3c466673db1213b6"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "actix-router"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,7 +144,7 @@ version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "143fcc2912e0d1de2bcf4e2f720d2a60c28652ab4179685a1ee159e0fb3db227"
 dependencies = [
- "actix-macros",
+ "actix-macros 0.1.2",
  "actix-threadpool",
  "copyless",
  "futures-channel",
@@ -149,6 +159,7 @@ version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea360596a50aa9af459850737f99293e5cb9114ae831118cb6026b3bbc7583ad"
 dependencies = [
+ "actix-macros 0.2.3",
  "futures-core",
  "tokio 1.13.0",
 ]
@@ -189,7 +200,7 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47239ca38799ab74ee6a8a94d1ce857014b2ac36f242f70f3f75a66f691e791c"
 dependencies = [
- "actix-macros",
+ "actix-macros 0.1.2",
  "actix-rt 1.1.1",
  "actix-server",
  "actix-service",
@@ -254,7 +265,7 @@ checksum = "3158e822461040822f0dbf1735b9c2ce1f95f93b651d7a7aded00b1efbb1f635"
 dependencies = [
  "actix-codec",
  "actix-http",
- "actix-macros",
+ "actix-macros 0.1.2",
  "actix-router",
  "actix-rt 1.1.1",
  "actix-server",
@@ -1542,7 +1553,7 @@ name = "submission-system"
 version = "0.1.0"
 dependencies = [
  "actix",
- "actix-rt 1.1.1",
+ "actix-rt 2.3.0",
  "actix-web",
  "git2",
  "listenfd",

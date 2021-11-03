@@ -234,7 +234,7 @@ async fn submission_handler(form: web::Json<RequestData>, conf: web::Data<Config
             let clone_url = rep.clone_url.replace("{username}", &rep.deploy_user).replace("{password}", &rep.deploy_token);
             let branche_clone = branch.clone();
             let match_clone = rep.match_url.clone();
-            actix_rt::Arbiter::current().exec_fn(move || test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone()));
+            actix_rt::Arbiter::current().spawn_fn(move || test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone()));
 
             return Ok(HttpResponse::Ok().body("Running Test!"));
         }

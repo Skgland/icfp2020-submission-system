@@ -6,7 +6,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3720d0064a0ce5c0de7bd93bdb0a6caebab2a9b5668746145d7b3b0c5da02914"
 dependencies = [
- "actix-rt 2.3.0",
+ "actix-rt 2.4.0",
  "actix_derive",
  "bitflags",
  "bytes 1.1.0",
@@ -155,9 +155,9 @@ dependencies = [
 
 [[package]]
 name = "actix-rt"
-version = "2.3.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea360596a50aa9af459850737f99293e5cb9114ae831118cb6026b3bbc7583ad"
+checksum = "4a0c218d0a17c120f10ee0c69c9f0c45d87319e8f66b1f065e8412b612fc3e24"
 dependencies = [
  "actix-macros 0.2.3",
  "futures-core",
@@ -1553,7 +1553,7 @@ name = "submission-system"
 version = "0.1.0"
 dependencies = [
  "actix",
- "actix-rt 2.3.0",
+ "actix-rt 2.4.0",
  "actix-web",
  "git2",
  "listenfd",

@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{http::header, web, App, HttpResponse, HttpServer};
 use git2::build::RepoBuilder;
 use listenfd::ListenFd;
 use serde::Deserialize;
@@ -169,7 +169,7 @@ async fn style_handler() -> HttpResponse {
 
 async fn redirect_to_board() -> HttpResponse {
     HttpResponse::TemporaryRedirect()
-        .set_header("Location", "/board/")
+        .insert_header((header::LOCATION, "/board/"))
         .finish()
 }
 

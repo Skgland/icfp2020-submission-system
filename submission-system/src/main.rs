@@ -9,7 +9,7 @@ use git2::build::RepoBuilder;
 use listenfd::ListenFd;
 use serde::Deserialize;
 use serde::Serialize;
-use tempdir::TempDir;
+use tempfile::{Builder};
 
 const STYLE: &str = include_str!("style.css");
 
@@ -347,17 +347,17 @@ fn test_wrapper(
 }
 
 fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
-    let dir = TempDir::new("submission")?;
+    let tmp_dir = Builder::new().suffix("submission").tempdir()?;
 
-    let mut reo_builder = RepoBuilder::new();
+    let mut repo_builder = RepoBuilder::new();
 
-    let _repo = reo_builder.branch(branch).clone(clone_url, dir.path())?;
+    let _repo = repo_builder.branch(branch).clone(clone_url, tmp_dir.path())?;
 
     println!("Cloned");
     println!("Checked out {} branch!", branch);
 
     let platform = {
-        let mut platform_path = PathBuf::from(dir.path());
+        let mut platform_path = PathBuf::from(tmp_dir.path());
         platform_path.push(".platform");
 
         println!("Path: {}", platform_path.display());
@@ -368,7 +368,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
 
     let clean_dockerfile = format!("../dockerfiles/dockerfiles/{}/Dockerfile", platform);
     let repo_dockerfile = {
-        let mut buf = PathBuf::from(dir.path());
+        let mut buf = PathBuf::from(tmp_dir.path());
         buf.push("Dockerfile");
         buf
     };
@@ -383,7 +383,7 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
         .arg("--rm")
         .arg("--quiet")
         .arg("--network=none")
-        .arg(dir.path())
+        .arg(tmp_dir.path())
         .output()?;
 
     if !out.status.success() {
@@ -392,6 +392,8 @@ fn test(clone_url: &str, branch: &str) -> Result<TestResult, SetupError> {
             stderr: String::from_utf8(out.stderr)?,
         }));
     }
+
+    tmp_dir.close()?;
 
     let id = { String::from_utf8(out.stdout)?.trim().to_string() };
 

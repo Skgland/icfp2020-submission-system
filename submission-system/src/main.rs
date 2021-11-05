@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::RwLock;
 
@@ -114,7 +114,7 @@ impl Display for TestLogResult {
 
 #[actix_rt::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut listenfd = ListenFd::from_env();
+    let mut listen_fd = ListenFd::from_env();
 
     let config_content = std::fs::read_to_string("repositories.ron")?;
 
@@ -130,19 +130,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .service(web::resource("/").route(web::get().to(redirect_to_board)))
             .service(web::resource("/submission").route(web::post().to(submission_handler)))
             .service(web::resource("/board").route(web::get().to(redirect_to_board)))
-            .service(web::resource("/board/").route(web::get().to(submision_lookup)))
+            .service(web::resource("/board/").route(web::get().to(submission_lookup)))
             .service(web::resource("/board/style.css").route(web::get().to(style_handler)))
     });
 
-    server = if let Some(l) = listenfd.take_tcp_listener(0)? {
-        println!("Starting Server using TCPListener from listenfd.");
+    server = if let Some(l) = listen_fd.take_tcp_listener(0)? {
+        println!("Starting Server using TCPListener from listen_fd.");
         server.listen(l)?
     } else {
-        let sock_addr = SocketAddr::new([0, 0, 0, 0].into(), 80);
+        let sock_addresses: &[_] = &[
+            SocketAddr::from((Ipv6Addr::UNSPECIFIED, 80)),
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 80)),
+        ];
 
-        println!("Starting Server on {}", sock_addr);
+        println!("Starting Server on {:?}", sock_addresses);
 
-        server.bind(sock_addr)?
+        server.bind(sock_addresses)?
     };
     server.run().await?;
 
@@ -173,7 +176,7 @@ async fn redirect_to_board() -> HttpResponse {
         .finish()
 }
 
-async fn submision_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
+async fn submission_lookup(results: web::Data<RwLock<Vec<TestLogEntry>>>) -> HttpResponse {
     let guard = results.read().unwrap();
 
     let results: String = guard
@@ -241,10 +244,10 @@ async fn submission_handler(
                 .clone_url
                 .replace("{username}", &rep.deploy_user)
                 .replace("{password}", &rep.deploy_token);
-            let branche_clone = branch.clone();
+            let branch_clone = branch.clone();
             let match_clone = rep.match_url.clone();
             actix_rt::Arbiter::current().spawn_fn(move || {
-                test_wrapper(&match_clone, &clone_url, &branche_clone, results.clone())
+                test_wrapper(&match_clone, &clone_url, &branch_clone, results.clone())
             });
 
             return Ok(HttpResponse::Ok().body("Running Test!"));
@@ -272,14 +275,14 @@ enum SetupError {
     GitError(git2::Error),
     IOError(std::io::Error),
     RonError(ron::Error),
-    Utf8Erro(std::string::FromUtf8Error),
+    Utf8Error(std::string::FromUtf8Error),
     ContainerBuildFailed(Output),
 }
 
 impl_from_for!(git2::Error => SetupError as GitError);
 impl_from_for!(std::io::Error => SetupError as IOError);
 impl_from_for!(ron::Error => SetupError as RonError);
-impl_from_for!(std::string::FromUtf8Error => SetupError as Utf8Erro);
+impl_from_for!(std::string::FromUtf8Error => SetupError as Utf8Error);
 
 impl Error for SetupError {}
 
@@ -289,7 +292,7 @@ impl Display for SetupError {
             SetupError::GitError(git_err) => Display::fmt(git_err, f),
             SetupError::IOError(io_err) => Display::fmt(io_err, f),
             SetupError::RonError(ron_err) => Display::fmt(ron_err, f),
-            SetupError::Utf8Erro(utf8_error) => Display::fmt(utf8_error, f),
+            SetupError::Utf8Error(utf8_error) => Display::fmt(utf8_error, f),
             SetupError::ContainerBuildFailed(cbf) => Display::fmt(cbf, f),
         }
     }

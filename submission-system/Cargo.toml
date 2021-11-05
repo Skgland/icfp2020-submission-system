@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 actix = "0.12.0"
 actix-rt = "2.4.0"
-actix-web = "2.0.0"
+actix-web = "3.3.2"
 git2 = "0.13.16"
 listenfd = "0.3.5"
 ron = "0.7.0"

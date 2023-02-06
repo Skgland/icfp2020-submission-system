@@ -14,6 +14,6 @@ git2 = "0.14.4"
 listenfd = "1.0.0"
 ron = "0.7.0"
 serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.81"
+serde_json = "1.0.92"
 tempfile = "3.3.0"
 

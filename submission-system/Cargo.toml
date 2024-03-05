@@ -10,7 +10,7 @@ edition = "2018"
 actix = "0.13.0"
 actix-rt = "2.8.0"
 actix-web = "4.3.1"
-git2 = "0.16.1"
+git2 = "0.18.2"
 listenfd = "1.0.0"
 ron = "0.8.0"
 serde = { version = "1.0.147", features = ["derive"] }
